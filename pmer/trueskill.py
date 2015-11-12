@@ -7,15 +7,22 @@ from .base import Rater
 
 class TrueskillRater(Rater):
 
+    # Explicit rating class is not required.
+    # Ratings are created using a wrapper function.
+    _rating_class = trueskill.Rating
+
     def __init__(self, *, mu=25.0, sigma=25/3, beta=25/6, tau=25/300):
         super().__init__(initial_rating_value=mu)
         self._env = trueskill.TrueSkill(mu=mu, sigma=sigma, beta=beta, tau=tau, draw_probability=0.0, backend='scipy')
 
     def _init_rating(self):
-        return self._env.create_rating()
+        return self.create_rating()
 
     def _get_player_ratings(self, players):
         return [self[player] for player in players]
+
+    def create_rating(self, *args, **kwargs):
+        return self._env.create_rating(*args, **kwargs)
 
     def get_win_probabilities(self, team_a, team_b):
         assert len(team_a) == len(team_b)

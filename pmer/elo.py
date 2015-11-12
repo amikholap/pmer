@@ -1,8 +1,15 @@
 import math
-from .base import Rater
+
+from .base import Rater, Rating
+
+
+class EloRating(Rating):
+    pass
 
 
 class EloRater(Rater):
+
+    _rating_class = EloRating
 
     def __init__(self, *, K=0.1, scale=0.5, **kwargs):
         super().__init__(**kwargs)
