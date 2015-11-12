@@ -26,6 +26,9 @@ class Rater(object):
     def __getitem__(self, key):
         return self._ratings[key]
 
+    def __setitem__(self, key, value):
+        self._ratings[key] = value
+
     def _init_rating(self):
         initial_params = self._get_initial_rating_params()
         rating = self._rating_class(**initial_params)
@@ -36,6 +39,9 @@ class Rater(object):
             'value': self._initial_rating_value,
         }
         return params
+
+    def create_rating(self, *args, **kwargs):
+        return self._rating_class(*args, **kwargs)
 
     def get_win_probabilities(self, team_a, team_b):
         raise NotImplementedError
