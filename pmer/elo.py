@@ -43,7 +43,7 @@ class EloRater(Rater):
 
         winners_pwin, losers_pwin = self._get_win_probabilities_for_ratings(winners_rating, losers_rating)
 
-        delta = self.K * (1 - winners_pwin)
+        delta = event.weight * self.K * (1 - winners_pwin)
 
         # Update rating values.
         # Higher relative rating causes higher update.

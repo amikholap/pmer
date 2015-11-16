@@ -3,10 +3,11 @@ import collections
 
 class Event(object):
 
-    def __init__(self, winners, losers, date=None):
+    def __init__(self, winners, losers, date=None, weight=1):
         self.winners = winners
         self.losers = losers
         self.date = date
+        self.weight = weight
 
 
 class Rating(object):
