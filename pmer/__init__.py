@@ -1,3 +1,5 @@
-from .base import Event                # noqa
-from .elo import EloRater              # noqa
-from .trueskill import TrueskillRater  # noqa
+# pylint: disable=unused-import
+from .base import Event
+from .elo import EloRater
+from .trueskill import TrueskillRater
+from . import datasets

@@ -35,19 +35,23 @@ class EloRater(Rater):
         b_pwin = 1 - a_pwin
         return a_pwin, b_pwin
 
-    def update_ratings(self, event):
+    def _do_update_ratings(self, event):
         assert len(event.winners) == len(event.losers)
 
         winners_rating = self._get_team_rating(event.winners)
         losers_rating = self._get_team_rating(event.losers)
 
-        winners_pwin, losers_pwin = self._get_win_probabilities_for_ratings(winners_rating, losers_rating)
+        winners_pwin, _ = self._get_win_probabilities_for_ratings(winners_rating, losers_rating)
 
         delta = event.weight * self.K * (1 - winners_pwin)
 
         # Update rating values.
         # Higher relative rating causes higher update.
         for player_id in event.winners:
-            self[player_id].value += delta * (self[player_id].value / winners_rating)
+            self[player_id] = self.create_rating(
+                value=self[player_id].value + delta * (self[player_id].value / winners_rating)
+            )
         for player_id in event.losers:
-            self[player_id].value -= delta * (self[player_id].value / losers_rating)
+            self[player_id] = self.create_rating(
+                value=self[player_id].value - delta * (self[player_id].value / losers_rating)
+            )
