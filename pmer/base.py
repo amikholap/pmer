@@ -21,6 +21,12 @@ class Rating(object):
     def __init__(self, value):
         self.value = value
 
+    @property
+    def params(self):
+        return {
+            'value': self.value,
+        }
+
     def __float__(self):
         return self.value
 

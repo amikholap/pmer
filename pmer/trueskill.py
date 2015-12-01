@@ -4,7 +4,24 @@ import operator
 import matplotlib.pyplot as plt
 import trueskill
 
-from .base import Rater, RaterVisualisationMixin
+from .base import Rater, Rating, RaterVisualisationMixin
+
+
+class TrueskillRating(Rating):
+
+    @property
+    def params(self):
+        return {
+            'mu': self.mu,
+            'sigma': self.sigma,
+        }
+
+    def __init__(self, rating):
+        """Wrap trueskill.Rating object."""
+        self._rating = rating
+
+    def __getattr__(self, name):
+        return getattr(self._rating, name)
 
 
 class TrueskillRaterVisualisationMixin(RaterVisualisationMixin):
@@ -24,9 +41,9 @@ class TrueskillRaterVisualisationMixin(RaterVisualisationMixin):
 
 class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
 
-    # Explicit rating class is not required.
-    # Ratings are created using a wrapper function.
-    _rating_class = trueskill.Rating
+    # Rating class is not used for explicit object construction.
+    # Ratings are created by a wrapper function.
+    _rating_class = TrueskillRating
 
     def __init__(self, *, mu=25.0, sigma=25/3, beta=25/6, tau=25/300):
         super().__init__(initial_rating_value=mu)
@@ -39,7 +56,7 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
         return [self[player] for player in players]
 
     def create_rating(self, *args, **kwargs):
-        return self._env.create_rating(*args, **kwargs)
+        return TrueskillRating(self._env.create_rating(*args, **kwargs))
 
     def get_win_probabilities(self, team_a, team_b):
         assert len(team_a) == len(team_b)
@@ -76,6 +93,6 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
         new_winner_ratings, new_loser_ratings = self._env.rate([winner_ratings, loser_ratings], ranks=[0, 1])
 
         for i, player_id in enumerate(event.winners):
-            self[player_id] = new_winner_ratings[i]
+            self[player_id] = TrueskillRating(new_winner_ratings[i])
         for i, player_id in enumerate(event.losers):
-            self[player_id] = new_loser_ratings[i]
+            self[player_id] = TrueskillRating(new_loser_ratings[i])
