@@ -4,7 +4,9 @@ import numbers
 import operator
 
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns  # pylint: disable=unused-import
+import scipy.stats     # pylint: disable=unused-import
 
 
 class Event(object):
@@ -41,6 +43,14 @@ class HistoricalRating(object):
 class RaterVisualisationMixin(object):
     """A container for rater-related visualisation methods."""
 
+    def plot_rating_distribution_kde(self):
+        means = [float(r) for r in self._ratings.values()]
+        min_rating = min(means)
+        max_rating = max(means)
+        xs = np.linspace(min_rating - 0.1*abs(min_rating), max_rating + 0.1*abs(max_rating), 1000)
+        ys = scipy.stats.gaussian_kde(means).pdf(xs)
+        plt.plot(xs, ys)
+
     def plot_rating_history(self, player_ids):
         """
         Draw player rating history as time series.
@@ -50,7 +60,6 @@ class RaterVisualisationMixin(object):
         if isinstance(player_ids, numbers.Number):
             player_ids = [player_ids]
 
-        plt.figure()
         for player_id in player_ids:
             dates = []
             ratings = []
