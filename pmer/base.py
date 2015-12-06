@@ -3,6 +3,7 @@ import itertools
 import numbers
 import operator
 
+import bintrees
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns  # pylint: disable=unused-import
@@ -33,11 +34,49 @@ class Rating(object):
         return self.value
 
 
-class HistoricalRating(object):
+class PlayerHistory(object):
+    """Data structure to store player performance history."""
 
-    def __init__(self, rating, event):
-        self.rating = rating
-        self.event = event
+    class HistoricalRating(object):
+
+        def __init__(self, rating, event):
+            self.rating = rating
+            self.event = event
+
+    def __init__(self):
+        self._tree = bintrees.AVLTree()
+
+    def __iter__(self):
+        return iter(self._tree.values())
+
+    def __getitem__(self, date):
+        """Get the most recent hostorical rating before the provided date."""
+        # bintrees tree interface doesn't allow to get an element
+        #     with key strictly less than asked.
+        # So do it in two steps:
+        #     1. Try to return previous item. Works if date is already there.
+        #     2. Return any item with key <= date if it's not there.
+        try:
+            # Raises KeyError if item not found.
+            hr = self._tree.prev_item(date)[1]
+        except KeyError:
+            try:
+                # Raises KeyError if there are not keys less than date.
+                hr = self._tree.floor_item(date)[1]
+            except KeyError:
+                hr = None
+        return hr
+
+    def add(self, rating, event):
+        """
+        Save a record.
+
+        Args:
+            rating: Rating instance.
+            event: Event that caused that rating.
+        """
+        hr = self.HistoricalRating(rating, event)
+        self._tree[event.date] = hr
 
 
 class RaterVisualisationMixin(object):
@@ -84,7 +123,7 @@ class Rater(RaterVisualisationMixin):
     def __init__(self, *, initial_rating_value=1):
         self._initial_rating_value = initial_rating_value
         self._ratings = collections.defaultdict(self._init_rating)
-        self._history = collections.defaultdict(list)
+        self._history = collections.defaultdict(PlayerHistory)
         self.player_names = {}
 
     @property
@@ -132,8 +171,7 @@ class Rater(RaterVisualisationMixin):
         Record new ratings obtained from an event.
         """
         for player_id in itertools.chain(event.winners, event.losers):
-            historical_rating = HistoricalRating(rating=self[player_id], event=event)
-            self.history[player_id].append(historical_rating)
+            self.history[player_id].add(rating=self[player_id], event=event)
 
     def process_dataset(self, dataset):
         """Calculate ratings that result from the provided dataset."""
