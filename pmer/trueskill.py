@@ -12,13 +12,16 @@ class TrueskillRating(Rating):
     @property
     def params(self):
         return {
-            'mu': self.mu,
-            'sigma': self.sigma,
+            'mu': self._rating.mu,
+            'sigma': self._rating.sigma,
         }
 
     def __init__(self, rating):
         """Wrap trueskill.Rating object."""
         self._rating = rating
+
+    def __float__(self):
+        return float(self._rating)
 
     def __getattr__(self, name):
         return getattr(self._rating, name)
