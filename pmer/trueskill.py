@@ -66,7 +66,15 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
         if date is None:
             team_ratings = [self[player_id] for player_id in team]
         else:
-            team_ratings = [self.history[player_id][date].rating for player_id in team]
+            team_ratings = []
+            for player_id in team:
+                hr = self.history[player_id][date]
+                if hr:
+                    rating = hr.rating
+                else:
+                    # Given date is less that the first recorded event involving the player.
+                    rating = self._init_rating()
+                team_ratings.append(rating)
         return team_ratings
 
     def _get_win_probabilities_for_ratings(self, team_a_ratings, team_b_ratings):

@@ -24,7 +24,15 @@ class EloRater(Rater):
         if date is None:
             team_rating_sum = sum([self[player_id].value for player_id in team])
         else:
-            team_rating_sum = sum([self.history[player_id][date].rating.value for player_id in team])
+            team_rating_sum = 0
+            for player_id in team:
+                hr = self.history[player_id][date]
+                if hr:
+                    rating = hr.rating
+                else:
+                    # Given date is less that the first recorded event involving the player.
+                    rating = self._init_rating()
+                team_rating_sum += rating.value
         return team_rating_sum
 
     def _get_win_probabilities_for_ratings(self, rating_a, rating_b):
