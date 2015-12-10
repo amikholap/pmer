@@ -3,6 +3,7 @@ import datetime
 import csv
 import operator
 import os
+import random
 
 from .. import conf
 from .. import Event
@@ -48,3 +49,14 @@ class BaseDataset(object):
 
     def __len__(self):
         return len(self.events)
+
+    def subsample(self, p):
+        """
+        Take a random subsample of this dataset.
+
+        Args:
+            p: Probability to retain an event.
+        """
+        events_subsample = [e for e in self.events if random.random() < p]
+        subsampled_dataset = type(self)(events_subsample)
+        return subsampled_dataset
