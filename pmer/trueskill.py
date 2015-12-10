@@ -1,7 +1,10 @@
+import datetime
 import math
 import operator
 
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import trueskill
 
 from .base import Rater, Rating, RaterVisualisationMixin
@@ -16,6 +19,7 @@ class TrueskillRating(Rating):
             'sigma': self._rating.sigma,
         }
 
+    # pylint: disable=super-init-not-called
     def __init__(self, rating):
         """Wrap trueskill.Rating object."""
         self._rating = rating
@@ -55,21 +59,20 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
     def _init_rating(self):
         return self.create_rating()
 
-    def _get_player_ratings(self, players):
-        return [self[player] for player in players]
-
     def create_rating(self, *args, **kwargs):
         return TrueskillRating(self._env.create_rating(*args, **kwargs))
 
-    def get_win_probabilities(self, team_a, team_b):
-        assert len(team_a) == len(team_b)
+    def _get_team_ratings(self, team, date=None):
+        if date is None:
+            team_ratings = [self[player_id] for player_id in team]
+        else:
+            team_ratings = [self.history[player_id][date].rating for player_id in team]
+        return team_ratings
 
-        team_a_ratings = self._get_player_ratings(team_a)
-        team_b_ratings = self._get_player_ratings(team_b)
-
+    def _get_win_probabilities_for_ratings(self, team_a_ratings, team_b_ratings):
         delta_mu = sum([x.mu for x in team_a_ratings]) - sum([x.mu for x in team_b_ratings])
         sum_sigma = sum([x.sigma ** 2 for x in team_a_ratings]) + sum([x.sigma ** 2 for x in team_b_ratings])
-        playerCount = len(team_a) + len(team_b)
+        playerCount = len(team_a_ratings) + len(team_b_ratings)
         denominator = math.sqrt(playerCount * (self._env.beta * self._env.beta) + sum_sigma)
 
         team_a_win_probability = self._env.cdf(delta_mu / denominator)
@@ -90,8 +93,8 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
     def _do_update_ratings(self, event):
         assert len(event.winners) == len(event.losers)
 
-        winner_ratings = self._get_player_ratings(event.winners)
-        loser_ratings = self._get_player_ratings(event.losers)
+        winner_ratings = self._get_team_ratings(event.winners)
+        loser_ratings = self._get_team_ratings(event.losers)
 
         new_winner_ratings, new_loser_ratings = self._env.rate([winner_ratings, loser_ratings], ranks=[0, 1])
 
@@ -99,3 +102,23 @@ class TrueskillRater(TrueskillRaterVisualisationMixin, Rater):
             self[player_id] = TrueskillRating(new_winner_ratings[i])
         for i, player_id in enumerate(event.losers):
             self[player_id] = TrueskillRating(new_loser_ratings[i])
+
+
+class ExponentiallySmoothedTrueskillRater(TrueskillRater):
+
+    def _predict_team_ratings(self, team, date=None):
+        if date is None:
+            date = datetime.datetime.max
+        player_histories = {player_id: self.history[player_id][:date] for player_id in team}
+        smoothed_player_ratings = []
+        for player_id, ph in player_histories.items():
+            historical_ratings = np.array([hr.rating.mu for hr in ph])
+            smoothed_ratings = pd.ewma(historical_ratings, span=5)
+            if len(smoothed_ratings) > 0:
+                params = ph[-1].rating.params
+                params['mu'] = smoothed_ratings[-1]
+            else:
+                params = self[player_id].params
+                params['mu'] = self[player_id].mu
+            smoothed_player_ratings.append(self.create_rating(**params))
+        return smoothed_player_ratings

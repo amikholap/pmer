@@ -1,4 +1,8 @@
+import datetime
 import math
+
+import numpy as np
+import pandas as pd
 
 from .base import Rater, Rating
 
@@ -16,18 +20,11 @@ class EloRater(Rater):
         self.K = K
         self.scale = scale
 
-    def get_win_probabilities(self, team_a, team_b):
-        assert len(team_a) == len(team_b)
-
-        team_a_rating = self._get_team_rating(team_a)
-        team_b_rating = self._get_team_rating(team_b)
-
-        team_a_pwin, team_b_pwin = self._get_win_probabilities_for_ratings(team_a_rating, team_b_rating)
-
-        return team_a_pwin, team_b_pwin
-
-    def _get_team_rating(self, team):
-        team_rating_sum = sum([self[player_id].value for player_id in team])
+    def _get_team_ratings(self, team, date=None):
+        if date is None:
+            team_rating_sum = sum([self[player_id].value for player_id in team])
+        else:
+            team_rating_sum = sum([self.history[player_id][date].rating.value for player_id in team])
         return team_rating_sum
 
     def _get_win_probabilities_for_ratings(self, rating_a, rating_b):
@@ -38,8 +35,8 @@ class EloRater(Rater):
     def _do_update_ratings(self, event):
         assert len(event.winners) == len(event.losers)
 
-        winners_rating = self._get_team_rating(event.winners)
-        losers_rating = self._get_team_rating(event.losers)
+        winners_rating = self._get_team_ratings(event.winners)
+        losers_rating = self._get_team_ratings(event.losers)
 
         winners_pwin, _ = self._get_win_probabilities_for_ratings(winners_rating, losers_rating)
 
@@ -55,3 +52,21 @@ class EloRater(Rater):
             self[player_id] = self.create_rating(
                 value=self[player_id].value - delta * (self[player_id].value / losers_rating)
             )
+
+
+class ExponentiallySmoothedEloRater(EloRater):
+
+    def _predict_team_ratings(self, team, date=None):
+        if date is None:
+            date = datetime.datetime.max
+        player_histories = {player_id: self.history[player_id][:date] for player_id in team}
+        smoothed_player_ratings = []
+        for player_id, ph in player_histories.items():
+            historical_ratings = np.array([hr.rating.value for hr in ph])
+            smoothed_ratings = pd.ewma(historical_ratings, span=10)
+            if len(smoothed_ratings) > 0:
+                smoothed_value = smoothed_ratings[-1]
+            else:
+                smoothed_value = self[player_id].value
+            smoothed_player_ratings.append(smoothed_value)
+        return sum(smoothed_player_ratings)

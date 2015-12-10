@@ -49,8 +49,12 @@ class PlayerHistory(object):
     def __iter__(self):
         return iter(self._tree.values())
 
-    def __getitem__(self, date):
-        """Get the most recent hostorical rating before the provided date."""
+    def __getitem__(self, key):
+        """Get the most recent historical rating or a slice of them."""
+
+        if isinstance(key, slice):
+            return list(self._tree[key].values())
+
         # bintrees tree interface doesn't allow to get an element
         #     with key strictly less than asked.
         # So do it in two steps:
@@ -58,14 +62,18 @@ class PlayerHistory(object):
         #     2. Return any item with key <= date if it's not there.
         try:
             # Raises KeyError if item not found.
-            hr = self._tree.prev_item(date)[1]
+            hr = self._tree.prev_item(key)[1]
         except KeyError:
             try:
-                # Raises KeyError if there are not keys less than date.
-                hr = self._tree.floor_item(date)[1]
+                # Raises KeyError if there are no keys less than date.
+                hr = self._tree.floor_item(key)[1]
             except KeyError:
                 hr = None
+
         return hr
+
+    def __len__(self):
+        return len(self._tree)
 
     def add(self, rating, event):
         """
@@ -150,7 +158,31 @@ class Rater(RaterVisualisationMixin):
     def create_rating(self, *args, **kwargs):
         return self._rating_class(*args, **kwargs)
 
-    def get_win_probabilities(self, team_a, team_b):
+    def get_win_probabilities(self, team_a, team_b, date=None):
+        return self._make_win_probabilities(team_a, team_b, date, predict=False)
+
+    def predict_win_probabilities(self, team_a, team_b, date=None):
+        return self._make_win_probabilities(team_a, team_b, date, predict=True)
+
+    def _make_win_probabilities(self, team_a, team_b, date, predict):
+        assert len(team_a) == len(team_b)
+        if predict:
+            team_a_ratings = self._predict_team_ratings(team_a, date=date)
+            team_b_ratings = self._predict_team_ratings(team_b, date=date)
+        else:
+            team_a_ratings = self._get_team_ratings(team_a, date=date)
+            team_b_ratings = self._get_team_ratings(team_b, date=date)
+        team_a_win_p, team_b_win_p = \
+            self._get_win_probabilities_for_ratings(team_a_ratings, team_b_ratings)
+        return team_a_win_p, team_b_win_p
+
+    def _get_team_ratings(self, team, date=None):
+        raise NotImplementedError
+
+    def _predict_team_ratings(self, team, date=None):
+        return self._get_team_ratings(team, date=date)
+
+    def _get_win_probabilities_for_ratings(self, team_a_ratings, team_b_ratings):
         raise NotImplementedError
 
     def make_leaderboard(self):
@@ -172,6 +204,14 @@ class Rater(RaterVisualisationMixin):
         """
         for player_id in itertools.chain(event.winners, event.losers):
             self.history[player_id].add(rating=self[player_id], event=event)
+
+    def predict(self, events):
+        """Calculate estimates for actual winners to win."""
+        predictions = []
+        for event in events:
+            winners_pwin, _ = self.predict_win_probabilities(event.winners, event.losers, date=event.date)
+            predictions.append(winners_pwin)
+        return predictions
 
     def process_dataset(self, dataset):
         """Calculate ratings that result from the provided dataset."""
