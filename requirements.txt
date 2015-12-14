@@ -3,6 +3,7 @@ ipdb==0.8.1
 ipython==4.0.1
 jupyter==1.0.0
 matplotlib==1.5.0
+networkx==1.10
 numpy==1.10.1
 pylint==1.4.4
 scipy==0.16.1
